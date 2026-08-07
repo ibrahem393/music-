@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+
+/*
+ * Phase 1 is deliberately unstyled beyond legibility. The palette, type scale
+ * and chromatic colour system land in Phase 4.
+ */
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #fbf8ff;
+  color: #161029;
+}
