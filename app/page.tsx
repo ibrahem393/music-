@@ -1,26 +1,20 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
 
 import { runAnalysis } from '@/lib/client/runAnalysis';
+import { saveResult } from '@/lib/client/resultStore';
 import { STAGES, STAGE_LABEL, type ProgressEvent, type StageId } from '@/lib/progress';
-import type { AnalysisOnly, AnalysisResult } from '@/lib/gemini/schema';
+import type { AnalysisOnly } from '@/lib/gemini/schema';
 
 /**
- * Phase 1 harness. This page exists to prove the pipeline end to end: paste a
- * link, watch real stages arrive, read the raw JSON. The hero, the URL field as
- * focal element, and everything else in the design direction land in Phase 4.
+ * Input and progress. The finished analysis is handed to /work/<id>, which is
+ * where the panel, the form timeline and the score live.
+ *
+ * Styling here is still functional only — the hero, the URL field as the single
+ * focal element and the chromatic colour system arrive in Phase 4.
  */
-
-/**
- * abcjs touches `window` during layout, so the whole notation workspace is
- * client-only. Without ssr: false the build dies on "window is not defined".
- */
-const ScoreWorkspace = dynamic(() => import('@/components/ScoreWorkspace'), {
-  ssr: false,
-  loading: () => <p className="text-sm text-neutral-600">Loading the notation engine…</p>,
-});
 
 const EXAMPLES = [
   { label: 'Radiohead — Weird Fishes', url: 'https://www.youtube.com/watch?v=EAqLI8g_LMk' },
@@ -37,10 +31,12 @@ export default function Home() {
   const [stage, setStage] = useState<StageId | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [analysis, setAnalysis] = useState<AnalysisOnly | null>(null);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<{ message: string; detail?: string } | null>(null);
 
+  const router = useRouter();
   const abortRef = useRef<AbortController | null>(null);
+  const accuracyRef = useRef(accuracy);
+  accuracyRef.current = accuracy;
 
   const onEvent = useCallback((event: ProgressEvent) => {
     switch (event.type) {
@@ -56,16 +52,19 @@ export default function Home() {
         setElapsedMs(event.elapsedMs);
         break;
       case 'result':
-        setResult(event.result);
         setElapsedMs(event.elapsedMs);
         setState('done');
+        // Hand the analysis to the workspace. The store is per-tab, so this
+        // survives a reload but does not make the URL shareable.
+        saveResult({ id: event.id, accuracy: accuracyRef.current, result: event.result });
+        router.push(`/work/${event.id}`);
         break;
       case 'error':
         setError(event.detail ? { message: event.message, detail: event.detail } : { message: event.message });
         setState('failed');
         break;
     }
-  }, []);
+  }, [router]);
 
   const start = useCallback(
     async (raw: string) => {
@@ -77,7 +76,6 @@ export default function Home() {
       setStage(null);
       setElapsedMs(0);
       setAnalysis(null);
-      setResult(null);
       setError(null);
 
       await runAnalysis({ source: raw, accuracy }, { onEvent }, controller.signal);
@@ -97,7 +95,7 @@ export default function Home() {
         <p className="text-sm text-neutral-600">
           Paste a music video link. Get an analysis and a piano score at three difficulty levels.
         </p>
-        <p className="text-xs text-neutral-500">Phase 1 harness — raw pipeline output, no styling yet.</p>
+        <p className="text-xs text-neutral-500">Styling arrives in the design pass; this is the working interface.</p>
       </header>
 
       <form
@@ -159,7 +157,7 @@ export default function Home() {
         </div>
       </form>
 
-      {state === 'idle' && !result && (
+      {state === 'idle' && (
         <section aria-labelledby="examples" className="flex flex-col gap-2">
           <h2 id="examples" className="text-sm font-medium">
             Or try one of these
@@ -227,22 +225,11 @@ export default function Home() {
         </section>
       )}
 
-      {analysis && !result && (
-        <section aria-label="Analysis (partial)" className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium">Analysis — arrangements still being written</h2>
+      {analysis && (
+        <section aria-label="Analysis so far" className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium">Analysis in — still writing the arrangements</h2>
           <RawJson value={analysis} />
         </section>
-      )}
-
-      {result && <ScoreWorkspace result={result} accuracy={accuracy} />}
-
-      {result && (
-        <details>
-          <summary className="cursor-pointer text-sm font-medium">Raw analysis JSON</summary>
-          <div className="mt-2">
-            <RawJson value={result} />
-          </div>
-        </details>
       )}
     </main>
   );

@@ -17,6 +17,7 @@ import {
   type ExportFormat,
 } from '@/lib/abc/transform';
 import { validateAbc } from '@/lib/abc/validate';
+import { mapFormBarToScore } from '@/lib/form';
 import { prepareScore, type ScoreState } from '@/lib/client/prepareScore';
 import { useSynth, type LoopRange } from '@/lib/client/useSynth';
 import { DIFFICULTY_LEVELS, type AnalysisResult, type Difficulty } from '@/lib/gemini/schema';
@@ -30,12 +31,27 @@ import { DIFFICULTY_LEVELS, type AnalysisResult, type Difficulty } from '@/lib/g
 
 const DISCLAIMER = 'AI-generated arrangement — verify against the recording before performance.';
 
+/**
+ * A section of the form, expressed in the form's own bar numbering. The
+ * workspace maps it onto the score's bars itself, since it is the only place
+ * that knows how many bars the arrangement actually came out at.
+ */
+export type SectionFocus = {
+  index: number;
+  startBar: number;
+  endBar: number;
+  formBars: number;
+};
+
 export type ScoreWorkspaceProps = {
   result: AnalysisResult;
   accuracy: 'fast' | 'accurate';
-  /** Bar to scroll to, supplied by the form timeline in Phase 3. */
-  scrollToBar?: number | null;
-  loop?: LoopRange;
+  /** The section selected in the form timeline, or null. */
+  focus?: SectionFocus | null;
+  /** Whether that section should loop during playback. */
+  loopSection?: boolean;
+  /** Reports the rendered bar count so the timeline can say if it lines up. */
+  onScoreBarsChange?: (bars: number | null) => void;
 };
 
 type States = Record<Difficulty, ScoreState>;
@@ -49,8 +65,9 @@ const INITIAL_STATES: States = {
 export default function ScoreWorkspace({
   result,
   accuracy,
-  scrollToBar = null,
-  loop = null,
+  focus = null,
+  loopSection = false,
+  onScoreBarsChange,
 }: ScoreWorkspaceProps) {
   const [states, setStates] = useState<States>(INITIAL_STATES);
   const [active, setActive] = useState<Difficulty>('medium');
@@ -112,9 +129,28 @@ export default function ScoreWorkspace({
     if (fallback) setActive(fallback);
   }, [activeState.status, states]);
 
+  const readyBars = activeState.status === 'ready' ? activeState.bars : null;
+
   useEffect(() => {
-    if (scrollToBar !== null) scoreRef.current?.scrollToBar(scrollToBar);
-  }, [scrollToBar]);
+    onScoreBarsChange?.(readyBars);
+  }, [readyBars, onScoreBarsChange]);
+
+  // Scroll the staff to the selected section. The form counts bars in the
+  // recording; the arrangement may have fewer, so the landing bar is scaled.
+  useEffect(() => {
+    if (!focus || readyBars === null) return;
+    scoreRef.current?.scrollToBar(mapFormBarToScore(focus.startBar, focus.formBars, readyBars));
+  }, [focus, readyBars]);
+
+  const loop = useMemo<LoopRange>(() => {
+    if (!loopSection || !focus || !tune || readyBars === null) return null;
+    const msPerBar = tune.millisecondsPerMeasure(tempo);
+    if (!Number.isFinite(msPerBar) || msPerBar <= 0) return null;
+    const startBar = mapFormBarToScore(focus.startBar, focus.formBars, readyBars);
+    const endBar = mapFormBarToScore(focus.endBar, focus.formBars, readyBars);
+    if (endBar <= startBar) return null;
+    return { startMs: startBar * msPerBar, endMs: endBar * msPerBar };
+  }, [loopSection, focus, tune, readyBars, tempo]);
 
   const paintCursor = useCallback((event: NoteTimingEvent) => {
     for (const element of cursorRef.current) element.classList.remove('cadence-cursor');
@@ -134,10 +170,7 @@ export default function ScoreWorkspace({
 
   const readyAbc = activeState.status === 'ready' ? activeState.abc : null;
 
-  const totalBars = useMemo(
-    () => (activeState.status === 'ready' ? activeState.bars : 0),
-    [activeState],
-  );
+  const totalBars = readyBars ?? 0;
 
   const download = useCallback(
     (format: ExportFormat) => {

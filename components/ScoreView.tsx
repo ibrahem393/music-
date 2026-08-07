@@ -54,9 +54,21 @@ export default function ScoreView({
       scrollToBar: (bar: number) => {
         const container = containerRef.current;
         if (!container) return;
-        // add_classes puts abcjs-mXX on every engraved element.
-        const target = container.querySelector(`.abcjs-m${bar}`);
-        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        /*
+         * add_classes emits both abcjs-m<n> and abcjs-mm<n>. They are not
+         * interchangeable: abcjs-m counts measures *within a system* and
+         * restarts at zero on every line, while abcjs-mm is the absolute
+         * measure number across the tune. Only the latter can find bar 33.
+         * Both are 0-based.
+         */
+        const target = container.querySelector(`.abcjs-mm${bar}`);
+        if (!target) return;
+        target.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'auto'
+            : 'smooth',
+          block: 'center',
+        });
       },
     }),
     [],
