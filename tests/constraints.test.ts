@@ -117,20 +117,45 @@ describe('constraint 3 — audio never travels through our API route', () => {
 });
 
 describe('constraint 4 — abcjs is browser-only', () => {
-  it('abcjs is never imported into a server component or route', () => {
+  /**
+   * lib/abc/* imports abcjs legitimately — parseOnly and strTranspose need no
+   * DOM. What must never happen is abcjs reaching the server render, so the
+   * rule is about entry points: nothing under app/ that renders on the server
+   * may pull it in, directly or through lib/abc.
+   */
+  const pullsInAbcjs = (text: string): boolean =>
+    /from\s+['"]abcjs/.test(text) || /from\s+['"]@\/lib\/abc\//.test(text);
+
+  it('no server-rendered file under app/ reaches abcjs', () => {
     const offenders = FILES.filter(
-      (f) =>
-        !isTest(f.rel) &&
-        /from\s+['"]abcjs/.test(f.text) &&
-        !isClientComponent(f.text) &&
-        !/import\s*\(/.test(f.text),
+      (f) => f.rel.startsWith('app/') && !isClientComponent(f.text) && pullsInAbcjs(f.text),
     ).map((f) => f.rel);
     expect(offenders).toEqual([]);
   });
 
-  it('any component rendering abcjs is loaded with ssr: false', () => {
-    const dynamicUsers = FILES.filter((f) => /next\/dynamic/.test(f.text) && /abc/i.test(f.text));
-    for (const file of dynamicUsers) {
+  it('no API route reaches abcjs — the server never engraves', () => {
+    const offenders = FILES.filter(
+      (f) => /^app\/api\/.*route\.ts$/.test(f.rel) && pullsInAbcjs(f.text),
+    ).map((f) => f.rel);
+    expect(offenders).toEqual([]);
+  });
+
+  it('every component that renders abcjs is a client component', () => {
+    const offenders = FILES.filter(
+      (f) => f.rel.startsWith('components/') && /abcjs\.renderAbc/.test(f.text) && !isClientComponent(f.text),
+    ).map((f) => f.rel);
+    expect(offenders).toEqual([]);
+  });
+
+  it('the notation workspace is only reachable through dynamic(ssr: false)', () => {
+    const importers = FILES.filter(
+      (f) => !isTest(f.rel) && /ScoreWorkspace/.test(f.text) && f.rel !== 'components/ScoreWorkspace.tsx',
+    );
+    expect(importers.length).toBeGreaterThan(0);
+    for (const file of importers) {
+      expect(file.text, `${file.rel} must load ScoreWorkspace dynamically`).toMatch(
+        /dynamic\(\s*\(\)\s*=>\s*import\(['"]@\/components\/ScoreWorkspace['"]\)/,
+      );
       expect(file.text, `${file.rel} must pass ssr: false`).toMatch(/ssr:\s*false/);
     }
   });

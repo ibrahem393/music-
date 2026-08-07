@@ -12,3 +12,20 @@ body {
   background: #fbf8ff;
   color: #161029;
 }
+
+/* The playback cursor. Phase 4 replaces this with the pitch-class hue. */
+.cadence-score .cadence-cursor {
+  fill: #7b5cff;
+}
+
+/* Sheet music stays on white in both themes. */
+.cadence-score svg {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cadence-score * {
+    transition: none !important;
+  }
+}

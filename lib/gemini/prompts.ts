@@ -2,23 +2,30 @@
  * Prompts are versioned. Bump PROMPT_VERSION whenever the wording changes so
  * cached or stored results can be traced back to what produced them.
  */
-export const PROMPT_VERSION = '2026-08-07.1';
+export const PROMPT_VERSION = '2026-08-07.3';
 
 const ABC_RULES = `
 NOTATION RULES — every arrangement must satisfy all of these:
 - Valid ABC 2.1. Nothing else — no markdown fences, no prose before or after.
 - Two staves braced as a piano system. Emit exactly this, in this order:
-    %%score {(V1) (V2)}
+    %%score {(1) (2)}
     V:1 clef=treble
     V:2 clef=bass
+  The ids inside %%score must match the V: ids exactly. Writing {(V1) (V2)}
+  above voices declared as V:1 and V:2 is a mismatch and the parser rejects it.
 - Complete headers, in order: X: T: C: M: L: Q: K:
   X: is the tune number, T: the title, C: the artist, M: the meter,
   L: the default note length, Q: the tempo as e.g. Q:1/4=96, K: the key.
 - A bar line at the end of every measure. A final bar line (|]) on the last one.
 - At least 16 bars of music per level. Not 16 bars of rests — 16 bars of the tune.
 - Both voices carry material in every bar. Never leave V:2 empty for a whole system.
-- Dynamics and pedal as ABC decorations: !p! !mf! !f! !crescendo(! !crescendo)!
-  !ped! !ped-up!. Attach them to notes, never on their own line.
+- Dynamics and hairpins as ABC decorations, attached to notes, never on their
+  own line: !ppp! !pp! !p! !mp! !mf! !f! !ff! !fff! !sfz! and
+  !crescendo(! !crescendo)! !diminuendo(! !diminuendo)!
+- Pedal as below-staff annotations, not decorations: "_Ped." to depress and
+  "_*" to release, written immediately before the note they apply to. The
+  !ped! and !ped-up! decorations in the ABC standard are silently dropped by
+  the renderer, so pedalling written that way would vanish from the score.
 - Line breaks inside the ABC are real newlines, escaped as \\n in the JSON string.
 - The ABC must parse standalone. If a reader would need context from another
   field to make sense of it, it is wrong.

@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useRef, useState } from 'react';
 
 import { runAnalysis } from '@/lib/client/runAnalysis';
@@ -11,6 +12,15 @@ import type { AnalysisOnly, AnalysisResult } from '@/lib/gemini/schema';
  * link, watch real stages arrive, read the raw JSON. The hero, the URL field as
  * focal element, and everything else in the design direction land in Phase 4.
  */
+
+/**
+ * abcjs touches `window` during layout, so the whole notation workspace is
+ * client-only. Without ssr: false the build dies on "window is not defined".
+ */
+const ScoreWorkspace = dynamic(() => import('@/components/ScoreWorkspace'), {
+  ssr: false,
+  loading: () => <p className="text-sm text-neutral-600">Loading the notation engine…</p>,
+});
 
 const EXAMPLES = [
   { label: 'Radiohead — Weird Fishes', url: 'https://www.youtube.com/watch?v=EAqLI8g_LMk' },
@@ -224,13 +234,15 @@ export default function Home() {
         </section>
       )}
 
+      {result && <ScoreWorkspace result={result} accuracy={accuracy} />}
+
       {result && (
-        <section aria-label="Result" className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium">
-            {result.track.title} — {result.track.artist}
-          </h2>
-          <RawJson value={result} />
-        </section>
+        <details>
+          <summary className="cursor-pointer text-sm font-medium">Raw analysis JSON</summary>
+          <div className="mt-2">
+            <RawJson value={result} />
+          </div>
+        </details>
       )}
     </main>
   );
