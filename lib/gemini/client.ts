@@ -16,9 +16,25 @@ export const MODELS = {
 
 export type Accuracy = keyof typeof MODELS;
 
+/**
+ * Transcribing by ear and voicing three arrangements is the hard end of what
+ * these models do, and the difference between Flash and Pro shows up directly
+ * in the quality of the notation. Pro is the default; Flash is opt-in for
+ * people who would rather have an answer in half the time.
+ */
+export const DEFAULT_ACCURACY: Accuracy = 'accurate';
+
 export function modelFor(accuracy: Accuracy): string {
   return MODELS[accuracy];
 }
+
+/**
+ * Three substantial arrangements plus the full analysis is a lot of JSON, and
+ * ABC is verbose. Left at the default this is the limit that bites first, and
+ * it bites as a truncated final arrangement. 2.5 Flash and Pro both accept up
+ * to 65535 output tokens.
+ */
+const MAX_OUTPUT_TOKENS = 65_535;
 
 // ---------------------------------------------------------------------------
 // Typed errors — every failure path lands in this union, nothing is swallowed
@@ -195,6 +211,7 @@ export type GenerateJsonOptions<T> = {
   /** The zod gate. A shape-valid response can still be musically nonsense. */
   validate: z.ZodType<T>;
   temperature?: number;
+  maxOutputTokens?: number;
   signal?: AbortSignal;
 };
 
@@ -212,6 +229,7 @@ export async function generateJson<T>(opts: GenerateJsonOptions<T>): Promise<Gem
         responseMimeType: 'application/json',
         responseSchema: opts.responseSchema,
         temperature: opts.temperature ?? 0.4,
+        maxOutputTokens: opts.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
         ...(opts.signal ? { abortSignal: opts.signal } : {}),
       },
     });
@@ -295,6 +313,7 @@ export async function generateJsonStream<T>(
         responseMimeType: 'application/json',
         responseSchema: opts.responseSchema,
         temperature: opts.temperature ?? 0.4,
+        maxOutputTokens: opts.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
         ...(opts.signal ? { abortSignal: opts.signal } : {}),
       },
     });

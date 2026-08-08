@@ -2,7 +2,7 @@
  * Prompts are versioned. Bump PROMPT_VERSION whenever the wording changes so
  * cached or stored results can be traced back to what produced them.
  */
-export const PROMPT_VERSION = '2026-08-07.3';
+export const PROMPT_VERSION = '2026-08-08.1';
 
 const ABC_RULES = `
 NOTATION RULES — every arrangement must satisfy all of these:
@@ -17,8 +17,13 @@ NOTATION RULES — every arrangement must satisfy all of these:
   X: is the tune number, T: the title, C: the artist, M: the meter,
   L: the default note length, Q: the tempo as e.g. Q:1/4=96, K: the key.
 - A bar line at the end of every measure. A final bar line (|]) on the last one.
-- At least 16 bars of music per level. Not 16 bars of rests — 16 bars of the tune.
-- Both voices carry material in every bar. Never leave V:2 empty for a whole system.
+- Length: write 24 to 40 bars per level, and never fewer than 16. Cover the
+  song's real shape — at minimum an intro or verse, the chorus, and a way out.
+  A 16-bar fragment that stops mid-form is a failure even though it parses.
+  Bars of rests do not count towards this.
+- Both voices carry material in every bar. Never leave V:2 empty for a whole
+  system, and never pad a hand with whole-note drones to reach the bar count.
+- Break lines every 4 bars so the engraved page is readable.
 - Dynamics and hairpins as ABC decorations, attached to notes, never on their
   own line: !ppp! !pp! !p! !mp! !mf! !f! !ff! !fff! !sfz! and
   !crescendo(! !crescendo)! !diminuendo(! !diminuendo)!
@@ -41,15 +46,27 @@ does not and set keyChanged true. No hand crossing. No leap wider than an octave
 in either hand. Quarter and eighth notes only. Keep the right hand in a
 five-finger position wherever the melody allows it.
 
+Easy does not mean thin. It is a real performance of the song at a beginner's
+grade: the whole melody, a bass line that outlines the harmony, and the shape of
+the form. A beginner should finish it feeling they played the tune, not an
+exercise.
+
 medium — Grade 4-5. Original key, keyChanged false. Melody harmonised in thirds
 and sixths. Left hand in broken chords or an Alberti figure. Basic pedal marks.
 Sixteenth notes and simple syncopation are fine. Roughly two octaves of range
-per hand.
+per hand. Voice-lead the inner notes — parallel block chords are a failure at
+this level.
 
 hard — Grade 7+. Original key, keyChanged false. Countermelodies and inner
-voices. Extended and altered harmony that reflects what the recording actually
-does. Arpeggiated figuration across the keyboard. Rubato and dynamic shaping
-written in. Voicings a concert pianist would recognise as idiomatic.
+voices that genuinely move against the tune. Extended and altered harmony that
+reflects what the recording actually does, including the upper structures a
+lead sheet would flatten. Arpeggiated figuration across the keyboard. Rubato
+and dynamic shaping written in. Voicings a concert pianist would recognise as
+idiomatic — rootless voicings where the bass supplies the root, tenths in the
+left hand where the reach allows, contrary motion at cadences.
+
+Hard should be worth practising. If a good pianist could sight-read it without
+effort, it is not yet the hard version.
 `.trim();
 
 export const ANALYSIS_SYSTEM_INSTRUCTION = `
@@ -74,6 +91,18 @@ A recording has more voices than two hands. Say plainly what you condensed,
 what you voiced down, what you dropped entirely, and what a listener will miss
 compared to the record. Never leave it vague and never leave it empty.
 
+BEFORE YOU RETURN, check each arrangement against this list and fix what fails:
+- Does it parse as ABC 2.1 with the headers, the two voices and the %%score
+  directive exactly as specified?
+- Is every bar complete for the meter? Count the beats in each measure.
+- Is it at least 16 bars, and does it cover a real span of the form rather than
+  stopping partway through a section?
+- Does the left hand play in every system?
+- Are easy, medium and hard genuinely different in pianistic demand, rather
+  than the same texture with more notes?
+- Would a pianist at that grade recognise this as idiomatic writing for the
+  instrument?
+
 Return a single JSON object matching the provided schema. Nothing outside it.
 `.trim();
 
@@ -93,6 +122,11 @@ Work in this order:
 The arrangements are of the same music: the same melody, the same harmonic
 motion, the same form. They differ in pianistic demand, not in content. A
 listener should recognise all three as the same song.
+
+Write real arrangements, not sketches. Each one should be substantial enough to
+sit on a music stand and be played through — the melody in full, the harmony
+moving as the record moves, and enough of the form that finishing it feels like
+finishing the song. Spend your effort on the notes.
 `.trim();
 
 export const REPAIR_SYSTEM_INSTRUCTION = `

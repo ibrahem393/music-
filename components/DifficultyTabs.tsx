@@ -45,7 +45,7 @@ export default function DifficultyTabs({ active, onChange, states }: DifficultyT
   };
 
   return (
-    <div role="tablist" aria-label="Difficulty" onKeyDown={onKeyDown} className="flex flex-wrap gap-2">
+    <div role="tablist" aria-label="Difficulty" onKeyDown={onKeyDown} className="print-hide flex flex-wrap gap-2">
       {DIFFICULTY_LEVELS.map((level) => {
         const selected = level === active;
         const note = statusNote(states[level]);
@@ -60,16 +60,18 @@ export default function DifficultyTabs({ active, onChange, states }: DifficultyT
             aria-controls={`panel-${level}`}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(level)}
-            className={[
-              'rounded border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600',
-              selected ? 'border-violet-700 bg-violet-700 text-white' : 'border-neutral-300',
-              unavailable && !selected ? 'text-neutral-400' : '',
-            ].join(' ')}
+            className={`rounded-lg border px-3.5 py-2 text-sm font-semibold ${selected ? 'cadence-solid' : ''}`}
+            style={
+              selected
+                ? undefined
+                : {
+                    borderColor: 'var(--line)',
+                    color: unavailable ? 'var(--ink-faint)' : 'var(--ink-soft)',
+                  }
+            }
           >
             {LABEL[level]}
-            {note && (
-              <span className={selected ? 'ml-2 text-violet-100' : 'ml-2 text-neutral-500'}>({note})</span>
-            )}
+            {note && <span className="ml-2 text-xs font-normal opacity-80">({note})</span>}
           </button>
         );
       })}

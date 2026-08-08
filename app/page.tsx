@@ -3,17 +3,17 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
 
+import { PitchBars } from '@/components/PitchColor';
+import ThemeToggle from '@/components/ThemeToggle';
 import { runAnalysis } from '@/lib/client/runAnalysis';
 import { saveResult } from '@/lib/client/resultStore';
 import { STAGES, STAGE_LABEL, type ProgressEvent, type StageId } from '@/lib/progress';
 import type { AnalysisOnly } from '@/lib/gemini/schema';
 
 /**
- * Input and progress. The finished analysis is handed to /work/<id>, which is
- * where the panel, the form timeline and the score live.
- *
- * Styling here is still functional only — the hero, the URL field as the single
- * focal element and the chromatic colour system arrive in Phase 4.
+ * Full-bleed hero with the URL field as the single focal element. Twelve
+ * coloured bars — one per pitch class — breathe while the page is idle, and
+ * stop the moment there is real work to report.
  */
 
 const EXAMPLES = [
@@ -26,7 +26,7 @@ type RunState = 'idle' | 'running' | 'done' | 'failed';
 
 export default function Home() {
   const [source, setSource] = useState('');
-  const [accuracy, setAccuracy] = useState<'fast' | 'accurate'>('fast');
+  const [accuracy, setAccuracy] = useState<'fast' | 'accurate'>('accurate');
   const [state, setState] = useState<RunState>('idle');
   const [stage, setStage] = useState<StageId | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -38,33 +38,40 @@ export default function Home() {
   const accuracyRef = useRef(accuracy);
   accuracyRef.current = accuracy;
 
-  const onEvent = useCallback((event: ProgressEvent) => {
-    switch (event.type) {
-      case 'stage':
-        setStage(event.stage);
-        setElapsedMs(event.elapsedMs);
-        break;
-      case 'heartbeat':
-        setElapsedMs(event.elapsedMs);
-        break;
-      case 'analysis':
-        setAnalysis(event.analysis);
-        setElapsedMs(event.elapsedMs);
-        break;
-      case 'result':
-        setElapsedMs(event.elapsedMs);
-        setState('done');
-        // Hand the analysis to the workspace. The store is per-tab, so this
-        // survives a reload but does not make the URL shareable.
-        saveResult({ id: event.id, accuracy: accuracyRef.current, result: event.result });
-        router.push(`/work/${event.id}`);
-        break;
-      case 'error':
-        setError(event.detail ? { message: event.message, detail: event.detail } : { message: event.message });
-        setState('failed');
-        break;
-    }
-  }, [router]);
+  const onEvent = useCallback(
+    (event: ProgressEvent) => {
+      switch (event.type) {
+        case 'stage':
+          setStage(event.stage);
+          setElapsedMs(event.elapsedMs);
+          break;
+        case 'heartbeat':
+          setElapsedMs(event.elapsedMs);
+          break;
+        case 'analysis':
+          setAnalysis(event.analysis);
+          setElapsedMs(event.elapsedMs);
+          break;
+        case 'result':
+          setElapsedMs(event.elapsedMs);
+          setState('done');
+          // Hand the analysis to the workspace. The store is per-tab, so this
+          // survives a reload but does not make the URL shareable.
+          saveResult({ id: event.id, accuracy: accuracyRef.current, result: event.result });
+          router.push(`/work/${event.id}`);
+          break;
+        case 'error':
+          setError(
+            event.detail
+              ? { message: event.message, detail: event.detail }
+              : { message: event.message },
+          );
+          setState('failed');
+          break;
+      }
+    },
+    [router],
+  );
 
   const start = useCallback(
     async (raw: string) => {
@@ -89,67 +96,99 @@ export default function Home() {
   const currentIndex = stage ? STAGES.indexOf(stage) : -1;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-10">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Cadence</h1>
-        <p className="text-sm text-neutral-600">
-          Paste a music video link. Get an analysis and a piano score at three difficulty levels.
+    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-10 px-5 py-8 sm:py-14">
+      <nav className="flex items-center justify-between">
+        <span
+          className="font-mono text-xs tracking-widest uppercase"
+          style={{ color: 'var(--ink-faint)' }}
+        >
+          Cadence
+        </span>
+        <ThemeToggle />
+      </nav>
+
+      <header className="flex flex-col gap-5">
+        <h1
+          className="font-display text-5xl leading-[0.95] font-extrabold tracking-tight sm:text-7xl"
+          style={{ letterSpacing: '-0.035em' }}
+        >
+          Hear it once.
+          <br />
+          <span
+            style={{
+              color: 'hsl(var(--hue) var(--fill-s) var(--fill-l))',
+            }}
+          >
+            Play it tonight.
+          </span>
+        </h1>
+        <p className="max-w-xl text-base sm:text-lg" style={{ color: 'var(--ink-soft)' }}>
+          Paste a music video link. Cadence listens to the recording, writes out the analysis, and
+          arranges it for piano at three difficulty levels.
         </p>
-        <p className="text-xs text-neutral-500">Styling arrives in the design pass; this is the working interface.</p>
       </header>
 
+      {/* The single focal element. */}
       <form
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
           void start(source);
         }}
       >
-        <label htmlFor="source" className="text-sm font-medium">
+        <label htmlFor="source" className="sr-only">
           Video link
         </label>
-        <input
-          id="source"
-          name="source"
-          type="url"
-          inputMode="url"
-          autoComplete="off"
-          placeholder="https://www.youtube.com/watch?v=…"
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
-        />
-
-        <fieldset className="flex flex-wrap items-center gap-4 text-sm">
-          <legend className="sr-only">Model</legend>
-          {(['fast', 'accurate'] as const).map((value) => (
-            <label key={value} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="accuracy"
-                value={value}
-                checked={accuracy === value}
-                onChange={() => setAccuracy(value)}
-                className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
-              />
-              {value === 'fast' ? 'Fast (2.5 Flash)' : 'High accuracy (2.5 Pro)'}
-            </label>
-          ))}
-        </fieldset>
-
-        <div className="flex flex-wrap gap-3">
+        <div
+          className="flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center"
+          style={{
+            borderColor: 'hsl(var(--hue) var(--edge-s) var(--edge-l))',
+            background: 'var(--paper-raised)',
+          }}
+        >
+          <input
+            id="source"
+            name="source"
+            type="url"
+            inputMode="url"
+            autoComplete="off"
+            placeholder="https://www.youtube.com/watch?v=…"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            className="min-w-0 flex-1 bg-transparent px-2 py-2 text-base outline-none sm:text-lg"
+            style={{ color: 'var(--ink)' }}
+          />
           <button
             type="submit"
             disabled={running || source.trim().length === 0}
-            className="rounded bg-violet-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+            className="cadence-solid rounded-lg px-5 py-3 text-sm font-semibold disabled:opacity-45"
           >
             {running ? 'Analysing…' : 'Analyse'}
           </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+          <fieldset className="flex flex-wrap items-center gap-4">
+            <legend className="sr-only">Model</legend>
+            {(['accurate', 'fast'] as const).map((value) => (
+              <label key={value} className="flex items-center gap-1.5" style={{ color: 'var(--ink-soft)' }}>
+                <input
+                  type="radio"
+                  name="accuracy"
+                  value={value}
+                  checked={accuracy === value}
+                  onChange={() => setAccuracy(value)}
+                />
+                {value === 'accurate' ? 'Best notation (2.5 Pro)' : 'Faster (2.5 Flash)'}
+              </label>
+            ))}
+          </fieldset>
           {running && (
             <button
               type="button"
               onClick={() => abortRef.current?.abort()}
-              className="rounded border border-neutral-300 px-4 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+              className="underline underline-offset-2"
+              style={{ color: 'var(--ink-soft)' }}
             >
               Cancel
             </button>
@@ -157,12 +196,12 @@ export default function Home() {
         </div>
       </form>
 
-      {state === 'idle' && (
-        <section aria-labelledby="examples" className="flex flex-col gap-2">
-          <h2 id="examples" className="text-sm font-medium">
-            Or try one of these
+      {state === 'idle' && !error && (
+        <section aria-labelledby="examples" className="flex flex-col gap-3">
+          <h2 id="examples" className="text-xs tracking-wide" style={{ color: 'var(--ink-faint)' }}>
+            Or start with one of these
           </h2>
-          <ul className="flex flex-col gap-1 text-sm">
+          <ul className="flex flex-wrap gap-2">
             {EXAMPLES.map((example) => (
               <li key={example.url}>
                 <button
@@ -171,7 +210,8 @@ export default function Home() {
                     setSource(example.url);
                     void start(example.url);
                   }}
-                  className="text-violet-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+                  className="rounded-lg border px-3 py-2 text-sm"
+                  style={{ borderColor: 'var(--line)', color: 'var(--ink-soft)' }}
                 >
                   {example.label}
                 </button>
@@ -181,45 +221,69 @@ export default function Home() {
         </section>
       )}
 
-      <section aria-label="Progress" aria-live="polite" aria-busy={running} className="flex flex-col gap-2">
+      <section
+        aria-label="Progress"
+        aria-live="polite"
+        aria-busy={running}
+        className="flex flex-col gap-3"
+      >
         {(running || state === 'done') && (
           <>
-            <ol className="flex flex-col gap-1 text-sm">
+            <ol className="flex flex-col gap-1.5">
               {STAGES.map((id, index) => {
-                const status =
-                  currentIndex > index || state === 'done'
-                    ? 'done'
-                    : currentIndex === index
-                      ? 'active'
-                      : 'waiting';
+                const done = currentIndex > index || state === 'done';
+                const active = currentIndex === index && state !== 'done';
                 return (
-                  <li
-                    key={id}
-                    className={
-                      status === 'done'
-                        ? 'text-neutral-500'
-                        : status === 'active'
-                          ? 'font-medium text-neutral-900'
-                          : 'text-neutral-400'
-                    }
-                  >
-                    {status === 'done' ? '✓' : status === 'active' ? '▸' : '·'} {STAGE_LABEL[id]}
+                  <li key={id} className="flex items-center gap-2.5 text-sm">
+                    <span
+                      aria-hidden="true"
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{
+                        background: done
+                          ? 'hsl(var(--hue) var(--fill-s) var(--fill-l))'
+                          : active
+                            ? 'hsl(var(--hue) var(--fill-s) var(--fill-l))'
+                            : 'var(--line-strong)',
+                        opacity: done ? 0.5 : 1,
+                      }}
+                    />
+                    <span
+                      style={{
+                        color: active ? 'var(--ink)' : done ? 'var(--ink-faint)' : 'var(--ink-faint)',
+                        fontWeight: active ? 600 : 400,
+                      }}
+                    >
+                      {STAGE_LABEL[id]}
+                    </span>
                   </li>
                 );
               })}
             </ol>
-            <p className="text-xs tabular-nums text-neutral-500">{(elapsedMs / 1000).toFixed(1)}s elapsed</p>
+            <p className="font-mono text-xs tabular-nums" style={{ color: 'var(--ink-faint)' }}>
+              {(elapsedMs / 1000).toFixed(1)}s
+            </p>
           </>
         )}
       </section>
 
       {error && (
-        <section aria-label="Error" className="rounded border border-red-300 bg-red-50 p-3">
-          <p className="text-sm font-medium text-red-900">{error.message}</p>
+        <section
+          aria-label="Error"
+          className="rounded-xl border p-4"
+          style={{ borderColor: 'var(--color-magenta)', background: 'var(--paper-raised)' }}
+        >
+          <p className="text-sm font-medium">{error.message}</p>
           {error.detail && (
             <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-red-700">Technical detail</summary>
-              <pre className="mt-1 overflow-x-auto text-xs whitespace-pre-wrap text-red-800">{error.detail}</pre>
+              <summary className="cursor-pointer text-xs" style={{ color: 'var(--ink-faint)' }}>
+                Technical detail
+              </summary>
+              <pre
+                className="mt-1 overflow-x-auto font-mono text-xs whitespace-pre-wrap"
+                style={{ color: 'var(--ink-soft)' }}
+              >
+                {error.detail}
+              </pre>
             </details>
           )}
         </section>
@@ -227,18 +291,18 @@ export default function Home() {
 
       {analysis && (
         <section aria-label="Analysis so far" className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium">Analysis in — still writing the arrangements</h2>
-          <RawJson value={analysis} />
+          <h2 className="text-sm font-semibold">
+            {analysis.track.title} — {analysis.track.artist}
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--ink-soft)' }}>
+            {analysis.musical.key} · {Math.round(analysis.musical.tempoBpm)} BPM ·{' '}
+            {analysis.musical.timeSignature}. Writing the arrangements now.
+          </p>
         </section>
       )}
-    </main>
-  );
-}
 
-function RawJson({ value }: { value: unknown }) {
-  return (
-    <pre className="max-h-[32rem] overflow-auto rounded border border-neutral-300 bg-white p-3 text-xs leading-relaxed whitespace-pre-wrap">
-      {JSON.stringify(value, null, 2)}
-    </pre>
+      {/* The twelve pitch classes, at rest. */}
+      <div className="mt-auto pt-6">{state === 'idle' && !error && <PitchBars />}</div>
+    </main>
   );
 }

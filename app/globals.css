@@ -1,31 +1,337 @@
 @import 'tailwindcss';
 
-/*
- * Phase 1 is deliberately unstyled beyond legibility. The palette, type scale
- * and chromatic colour system land in Phase 4.
- */
+/* ==========================================================================
+   Cadence — palette, type and the chromatic colour system.
+
+   Every accent in the interface is a pitch hue. components/PitchColor.tsx owns
+   the twelve hues; this file owns what a hue *means* in each role, and how
+   those roles shift between light and dark. Nothing here hard-codes a hue.
+   ========================================================================== */
+
+@theme {
+  --color-ink: #161029;
+  --color-paper: #fbf8ff;
+  --color-violet: #7b5cff;
+  --color-magenta: #ff3d9a;
+  --color-cyan: #00d4e0;
+  --color-marigold: #ffc145;
+  --color-lime: #a8e10c;
+
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-space-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
 :root {
   color-scheme: light;
+
+  --paper: #fbf8ff;
+  --paper-raised: #ffffff;
+  --ink: #161029;
+  --ink-soft: #55496f;
+  --ink-faint: #837a99;
+  --line: #e2dcef;
+  --line-strong: #cdc4e0;
+
+  /* The page accent, set from the detected key. Violet until we know. */
+  --hue: 252;
+
+  /* Role lightness/saturation. Overridden wholesale in dark mode. */
+  --mark-s: 68%;
+  --mark-l: 42%;
+  --fill-s: 84%;
+  --fill-l: 58%;
+  --wash-s: 88%;
+  --wash-l: 95%;
+  --edge-s: 62%;
+  --edge-l: 80%;
+  --on-fill: #ffffff;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --paper: #100c1e;
+  --paper-raised: #1a1430;
+  --ink: #f3eefc;
+  --ink-soft: #bcb2d4;
+  --ink-faint: #8b81a6;
+  --line: #2c2447;
+  --line-strong: #3d3360;
+
+  --mark-s: 78%;
+  --mark-l: 72%;
+  --fill-s: 72%;
+  --fill-l: 60%;
+  --wash-s: 45%;
+  --wash-l: 18%;
+  --edge-s: 40%;
+  --edge-l: 34%;
+  --on-fill: #0d0918;
 }
 
 body {
-  background: #fbf8ff;
-  color: #161029;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* The playback cursor. Phase 4 replaces this with the pitch-class hue. */
-.cadence-score .cadence-cursor {
-  fill: #7b5cff;
+::selection {
+  background: hsl(var(--hue) var(--fill-s) var(--fill-l) / 0.28);
 }
 
-/* Sheet music stays on white in both themes. */
+:focus-visible {
+  outline: 2px solid hsl(var(--hue) var(--fill-s) var(--fill-l));
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Pitch-coloured primitives. Each reads --hue from its nearest ancestor that
+   sets one, so tinting a subtree is a single inline style.
+   -------------------------------------------------------------------------- */
+
+.cadence-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: hsl(var(--hue) var(--mark-s) var(--mark-l));
+  background: hsl(var(--hue) var(--wash-s) var(--wash-l));
+  border: 1px solid hsl(var(--hue) var(--edge-s) var(--edge-l));
+}
+
+.cadence-chip-plain {
+  color: var(--ink-soft);
+  background: transparent;
+  border-color: var(--line);
+}
+
+.cadence-card {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.9rem 1rem;
+}
+
+.cadence-accent-bar {
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--hue) var(--fill-s) var(--fill-l)),
+    hsl(calc(var(--hue) + 40) var(--fill-s) var(--fill-l))
+  );
+}
+
+.cadence-solid {
+  background: hsl(var(--hue) var(--fill-s) var(--fill-l));
+  color: var(--on-fill);
+  border-color: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   The idle hero: twelve pitch classes breathing at their own rates.
+   -------------------------------------------------------------------------- */
+
+.cadence-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  height: 5rem;
+}
+
+.cadence-bar {
+  flex: 1 1 0;
+  border-radius: 999px;
+  background: hsl(var(--hue) var(--fill-s) var(--fill-l));
+  transform-origin: bottom;
+  height: 100%;
+  opacity: 0.85;
+  animation: cadence-breathe var(--rate) ease-in-out var(--delay) infinite alternate;
+}
+
+@keyframes cadence-breathe {
+  from {
+    transform: scaleY(0.28);
+    opacity: 0.5;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 0.95;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   The one orchestrated moment: the timeline draws left to right, section by
+   section, and then the staff fades in behind it. Everything else stays quiet.
+   -------------------------------------------------------------------------- */
+
+.cadence-draw > * {
+  animation: cadence-draw-in 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  animation-delay: calc(var(--section-index, 0) * 90ms);
+}
+
+@keyframes cadence-draw-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scaleX(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cadence-staff-enter {
+  animation: cadence-fade-in 0.5s ease-out both;
+  /* After the timeline has finished drawing. */
+  animation-delay: var(--staff-delay, 420ms);
+}
+
+@keyframes cadence-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   The score. Always on white, in both themes — it is sheet music.
+   -------------------------------------------------------------------------- */
+
+.cadence-score {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+}
+
 .cadence-score svg {
   max-width: 100%;
   height: auto;
 }
 
+/*
+ * The playback cursor. --note-hue is set per event from the sounding pitch
+ * class, so a note glows in its own colour as the cursor passes it.
+ */
+.cadence-score .cadence-cursor {
+  fill: hsl(var(--note-hue, var(--hue)) 82% 46%);
+  transition: fill 90ms linear;
+}
+
+.cadence-score .cadence-cursor ellipse,
+.cadence-score .cadence-cursor path {
+  fill: inherit;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .cadence-score * {
-    transition: none !important;
+  .cadence-bar,
+  .cadence-draw > *,
+  .cadence-staff-enter {
+    animation: none !important;
   }
+  .cadence-score .cadence-cursor {
+    transition: none;
+  }
+  * {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Print. Clean A4/Letter: no interface chrome, the title block on page one,
+   page numbers after it, and systems never split across a page break.
+   -------------------------------------------------------------------------- */
+
+@page {
+  size: A4 portrait;
+  margin: 18mm 16mm 20mm;
+}
+
+@page :first {
+  margin-top: 22mm;
+}
+
+@media print {
+  :root,
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --paper: #ffffff;
+    --paper-raised: #ffffff;
+    --ink: #000000;
+    --ink-soft: #333333;
+    --ink-faint: #555555;
+    --line: #cccccc;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  /* Everything that is interface rather than music. */
+  .print-hide,
+  nav,
+  button,
+  input,
+  select,
+  details > summary {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .cadence-score {
+    border: 0;
+    padding: 0;
+  }
+
+  /* Never break a system across pages. */
+  .cadence-score svg {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    width: 100% !important;
+  }
+
+  .print-title-block {
+    break-after: avoid;
+    page-break-after: avoid;
+    text-align: center;
+    margin-bottom: 6mm;
+  }
+
+  .print-footer {
+    position: fixed;
+    bottom: 6mm;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 8pt;
+    color: #555555;
+  }
+
+  /* Page numbers from page two onward; page one carries the title block. */
+  .print-page-number::after {
+    content: counter(page);
+  }
+
+  a[href]::after {
+    content: '';
+  }
+}
+
+.print-only {
+  display: none;
 }

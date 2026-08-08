@@ -36,14 +36,14 @@ export default function PlaybackBar({
   const blocked = synth.status === 'unsupported';
 
   return (
-    <div className="flex flex-col gap-3 rounded border border-neutral-300 p-3">
+    <div className="print-hide cadence-card flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => (playing ? synth.pause() : void synth.play())}
           disabled={busy || blocked}
           aria-label={playing ? 'Pause' : 'Play'}
-          className="rounded bg-violet-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+          className="cadence-solid rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-45"
         >
           {busy ? 'Loading instrument…' : playing ? 'Pause' : 'Play'}
         </button>
@@ -52,18 +52,19 @@ export default function PlaybackBar({
           type="button"
           onClick={() => synth.restart()}
           disabled={synth.status === 'idle' || busy || blocked}
-          className="rounded border border-neutral-300 px-3 py-2 text-sm disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-45"
+          style={{ borderColor: 'var(--line)', color: 'var(--ink-soft)' }}
         >
           Restart
         </button>
 
-        <p aria-live="polite" className="text-xs tabular-nums text-neutral-600">
+        <p aria-live="polite" className="font-mono text-xs tabular-nums" style={{ color: 'var(--ink-faint)' }}>
           {currentBar !== null ? `Bar ${currentBar + 1} of ${totalBars}` : `${totalBars} bars`}
         </p>
       </div>
 
       <label className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="w-24 shrink-0">Tempo</span>
+        <span className="w-24 shrink-0 text-xs" style={{ color: 'var(--ink-faint)' }}>Tempo</span>
         <input
           type="range"
           min={MIN_TEMPO}
@@ -71,16 +72,18 @@ export default function PlaybackBar({
           step={1}
           value={tempo}
           onChange={(e) => onTempoChange(Number(e.target.value))}
-          className="min-w-40 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+          className="min-w-40 flex-1"
+          style={{ accentColor: 'hsl(var(--hue) var(--fill-s) var(--fill-l))' }}
           aria-valuetext={`${tempo} beats per minute`}
         />
-        <span className="w-28 shrink-0 tabular-nums text-neutral-600">
+        <span className="w-28 shrink-0 font-mono text-xs tabular-nums" style={{ color: 'var(--ink-faint)' }}>
           {tempo} BPM
           {tempo !== suggestedTempo && (
             <button
               type="button"
               onClick={() => onTempoChange(suggestedTempo)}
-              className="ml-2 text-violet-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+              className="ml-2 underline underline-offset-2"
+              style={{ color: 'hsl(var(--hue) var(--mark-s) var(--mark-l))' }}
             >
               reset
             </button>
@@ -89,7 +92,7 @@ export default function PlaybackBar({
       </label>
 
       <label className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="w-24 shrink-0">Transpose</span>
+        <span className="w-24 shrink-0 text-xs" style={{ color: 'var(--ink-faint)' }}>Transpose</span>
         <input
           type="range"
           min={MIN_TRANSPOSE}
@@ -97,18 +100,19 @@ export default function PlaybackBar({
           step={1}
           value={transpose}
           onChange={(e) => onTransposeChange(Number(e.target.value))}
-          className="min-w-40 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+          className="min-w-40 flex-1"
+          style={{ accentColor: 'hsl(var(--hue) var(--fill-s) var(--fill-l))' }}
           aria-valuetext={
             transpose === 0 ? 'original key' : `${transpose} semitones from the original key`
           }
         />
-        <span className="w-28 shrink-0 tabular-nums text-neutral-600">
+        <span className="w-28 shrink-0 font-mono text-xs tabular-nums" style={{ color: 'var(--ink-faint)' }}>
           {SEMITONE_LABEL(transpose)}
         </span>
       </label>
 
       {synth.error && (
-        <p role="status" className="text-xs text-amber-800">
+        <p role="status" className="text-xs" style={{ color: 'var(--ink-soft)' }}>
           {synth.error}
         </p>
       )}

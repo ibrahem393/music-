@@ -17,6 +17,7 @@ import {
   type ExportFormat,
 } from '@/lib/abc/transform';
 import { validateAbc } from '@/lib/abc/validate';
+import { hueForPitchClass } from '@/components/PitchColor';
 import { mapFormBarToScore } from '@/lib/form';
 import { prepareScore, type ScoreState } from '@/lib/client/prepareScore';
 import { useSynth, type LoopRange } from '@/lib/client/useSynth';
@@ -30,6 +31,8 @@ import { DIFFICULTY_LEVELS, type AnalysisResult, type Difficulty } from '@/lib/g
  */
 
 const DISCLAIMER = 'AI-generated arrangement — verify against the recording before performance.';
+
+const LEVEL_TITLE: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 /**
  * A section of the form, expressed in the form's own bar numbering. The
@@ -153,9 +156,21 @@ export default function ScoreWorkspace({
   }, [loopSection, focus, tune, readyBars, tempo]);
 
   const paintCursor = useCallback((event: NoteTimingEvent) => {
-    for (const element of cursorRef.current) element.classList.remove('cadence-cursor');
+    for (const element of cursorRef.current) {
+      element.classList.remove('cadence-cursor');
+      element.style.removeProperty('--note-hue');
+    }
+
     const next = (event.elements ?? []).flat();
-    for (const element of next) element.classList.add('cadence-cursor');
+    // Notes glow in their own pitch colour as the cursor passes. midiPitches
+    // are MIDI numbers, so pitch % 12 is the pitch class directly.
+    const midi = event.midiPitches?.[0]?.pitch;
+    const hue = typeof midi === 'number' ? hueForPitchClass(((midi % 12) + 12) % 12) : null;
+
+    for (const element of next) {
+      element.classList.add('cadence-cursor');
+      if (hue !== null) element.style.setProperty('--note-hue', String(hue));
+    }
     cursorRef.current = next;
   }, []);
 
@@ -163,7 +178,10 @@ export default function ScoreWorkspace({
 
   useEffect(() => {
     return () => {
-      for (const element of cursorRef.current) element.classList.remove('cadence-cursor');
+      for (const element of cursorRef.current) {
+        element.classList.remove('cadence-cursor');
+        element.style.removeProperty('--note-hue');
+      }
       cursorRef.current = [];
     };
   }, [active]);
@@ -225,13 +243,20 @@ export default function ScoreWorkspace({
         aria-labelledby={`tab-${active}`}
         className="flex flex-col gap-4"
       >
-        <header className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">
-            {result.track.title} — {result.track.artist}
+        {/* Title block: on screen it is a heading; in print it opens page one. */}
+        <header className="print-title-block flex flex-col gap-1">
+          <h2 className="font-display text-xl font-bold tracking-tight">
+            {result.track.title}
           </h2>
-          <p className="text-xs text-neutral-600">{DISCLAIMER}</p>
+          <p className="text-sm" style={{ color: 'var(--ink-soft)' }}>
+            {result.track.artist}
+            <span className="print-only"> · {LEVEL_TITLE[active]} arrangement</span>
+          </p>
+          <p className="text-xs" style={{ color: 'var(--ink-faint)' }}>
+            {DISCLAIMER}
+          </p>
           {activeState.status === 'ready' && (
-            <p className="text-xs text-neutral-500">
+            <p className="print-hide text-xs" style={{ color: 'var(--ink-faint)' }}>
               {activeScore.difficultyNote}
               {activeScore.keyChanged && ' Transposed from the original key for this level.'}
               {activeState.repaired &&
@@ -242,19 +267,20 @@ export default function ScoreWorkspace({
 
         <div aria-live="polite">
           {activeState.status === 'validating' && (
-            <p className="text-sm text-neutral-600">Checking the notation…</p>
+            <p className="text-sm" style={{ color: 'var(--ink-soft)' }}>Checking the notation…</p>
           )}
           {activeState.status === 'repairing' && (
-            <p className="text-sm text-neutral-600">
+            <p className="text-sm" style={{ color: 'var(--ink-soft)' }}>
               The notation did not parse. Asking for a corrected copy…
             </p>
           )}
           {activeState.status === 'unavailable' && (
-            <div className="rounded border border-amber-300 bg-amber-50 p-3">
-              <p className="text-sm font-medium text-amber-900">{activeState.reason}</p>
+            <div className="rounded-lg border p-3"
+              style={{ borderColor: 'var(--color-marigold)', background: 'var(--paper-raised)' }}>
+              <p className="text-sm font-medium">{activeState.reason}</p>
               <details className="mt-2">
-                <summary className="cursor-pointer text-xs text-amber-800">What the parser said</summary>
-                <pre className="mt-1 overflow-x-auto text-xs whitespace-pre-wrap text-amber-900">
+                <summary className="cursor-pointer text-xs" style={{ color: 'var(--ink-faint)' }}>What the parser said</summary>
+                <pre className="mt-1 overflow-x-auto font-mono text-xs whitespace-pre-wrap" style={{ color: 'var(--ink-soft)' }}>
                   {activeState.detail}
                 </pre>
               </details>
@@ -275,13 +301,20 @@ export default function ScoreWorkspace({
               totalBars={totalBars}
             />
 
-            <ScoreView
-              ref={scoreRef}
-              abc={readyAbc}
-              visualTranspose={transpose}
-              onTune={setTune}
-              onRenderError={setRenderError}
-            />
+            <div className="cadence-staff-enter">
+              <ScoreView
+                ref={scoreRef}
+                abc={readyAbc}
+                visualTranspose={transpose}
+                onTune={setTune}
+                onRenderError={setRenderError}
+              />
+            </div>
+
+            <p className="print-only print-footer">
+              Arrangement generated for personal study.{' '}
+              <span className="print-page-number" />
+            </p>
 
             {renderError && (
               <p role="status" className="text-xs text-amber-800">
@@ -289,7 +322,7 @@ export default function ScoreWorkspace({
               </p>
             )}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="print-hide flex flex-wrap gap-2">
               {(
                 [
                   ['musicxml', 'Download MusicXML'],
@@ -301,7 +334,8 @@ export default function ScoreWorkspace({
                   key={format}
                   type="button"
                   onClick={() => download(format)}
-                  className="rounded border border-neutral-300 px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+                  className="rounded-lg border px-3 py-2 text-sm"
+                  style={{ borderColor: 'var(--line)', color: 'var(--ink-soft)' }}
                 >
                   {label}
                 </button>

@@ -142,7 +142,8 @@ export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 export const AnalyzeRequestSchema = z.object({
   source: z.string().min(1).max(2048),
-  accuracy: z.enum(['fast', 'accurate']).default('fast'),
+  // Pro by default: the notation is only as good as the model writing it.
+  accuracy: z.enum(['fast', 'accurate']).default('accurate'),
 });
 
 export type AnalyzeRequest = z.infer<typeof AnalyzeRequestSchema>;

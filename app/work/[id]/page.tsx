@@ -6,6 +6,8 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react';
 
 import AnalysisPanel from '@/components/AnalysisPanel';
 import FormTimeline from '@/components/FormTimeline';
+import { hueForName, hueStyle } from '@/components/PitchColor';
+import ThemeToggle from '@/components/ThemeToggle';
 import type { SectionFocus } from '@/components/ScoreWorkspace';
 import { mappingIsExact, sectionSpans, totalFormBars } from '@/lib/form';
 import { loadResult, type StoredResult } from '@/lib/client/resultStore';
@@ -62,26 +64,42 @@ export default function WorkPage({ params }: { params: Promise<{ id: string }> }
     setLoopingSection((current) => (current === index ? null : index));
   }, []);
 
+  /**
+   * The harmonic centre of each section — the root of its first chord — which
+   * is what the timeline tints by.
+   */
+  const sectionRoots = useMemo(() => {
+    const roots: Record<string, string | undefined> = {};
+    for (const entry of stored?.result.harmony ?? []) {
+      roots[entry.section] = entry.chordSymbols[0];
+    }
+    return roots;
+  }, [stored]);
+
   if (stored === undefined) {
     return (
-      <main className="mx-auto w-full max-w-3xl px-4 py-10">
-        <p className="text-sm text-neutral-600">Loading the analysis…</p>
+      <main className="mx-auto w-full max-w-3xl px-5 py-10">
+        <p className="text-sm" style={{ color: 'var(--ink-soft)' }}>
+          Loading the analysis…
+        </p>
       </main>
     );
   }
 
   if (stored === null) {
     return (
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">That analysis is not in this tab</h1>
-        <p className="text-sm text-neutral-600">
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 py-14">
+        <h1 className="font-display text-3xl font-bold tracking-tight">
+          That analysis is not in this tab
+        </h1>
+        <p className="text-sm" style={{ color: 'var(--ink-soft)' }}>
           Results are kept for the browser tab that ran them, so this link will not open an analysis
           someone else produced — or one from a tab you have since closed. Run it again and it will
           be here.
         </p>
         <Link
           href="/"
-          className="w-fit rounded bg-violet-700 px-4 py-2 text-sm font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+          className="cadence-solid w-fit rounded-lg px-4 py-2.5 text-sm font-semibold"
         >
           Analyse a link
         </Link>
@@ -95,16 +113,28 @@ export default function WorkPage({ params }: { params: Promise<{ id: string }> }
   const analysis = analysisOf(result);
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8">
-      <header className="flex flex-col gap-1">
+    // The detected key sets the page accent; everything below inherits --hue.
+    <main
+      className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-5 py-8"
+      style={hueStyle(hueForName(result.musical.key))}
+    >
+      <nav className="print-hide flex items-center justify-between">
         <Link
           href="/"
-          className="w-fit text-xs text-violet-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600"
+          className="text-xs underline underline-offset-2"
+          style={{ color: 'var(--ink-faint)' }}
         >
           ← Analyse another
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">{result.track.title}</h1>
-        <p className="text-sm text-neutral-600">
+        <ThemeToggle />
+      </nav>
+
+      <header className="flex flex-col gap-2">
+        <div className="cadence-accent-bar max-w-32" />
+        <h1 className="font-display text-4xl leading-tight font-extrabold tracking-tight sm:text-5xl">
+          {result.track.title}
+        </h1>
+        <p className="text-sm" style={{ color: 'var(--ink-soft)' }}>
           {result.track.artist} · {result.track.genre} · {result.track.eraOrStyle}
         </p>
       </header>
@@ -113,7 +143,7 @@ export default function WorkPage({ params }: { params: Promise<{ id: string }> }
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <aside
           aria-label="Analysis"
-          className="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:w-96 lg:shrink-0 lg:overflow-y-auto"
+          className="print-hide flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:w-96 lg:shrink-0 lg:overflow-y-auto"
         >
           <AnalysisPanel
             analysis={analysis}
@@ -125,6 +155,7 @@ export default function WorkPage({ params }: { params: Promise<{ id: string }> }
                 loopingIndex={loopingSection}
                 onToggleLoop={onToggleLoop}
                 exactMapping={mappingIsExact(formBars, scoreBars ?? 0)}
+                sectionRoots={sectionRoots}
               />
             }
           />
@@ -141,9 +172,14 @@ export default function WorkPage({ params }: { params: Promise<{ id: string }> }
         </div>
       </div>
 
-      <details>
-        <summary className="cursor-pointer text-sm font-medium">Raw analysis JSON</summary>
-        <pre className="mt-2 max-h-[32rem] overflow-auto rounded border border-neutral-300 bg-white p-3 text-xs whitespace-pre-wrap">
+      <details className="print-hide">
+        <summary className="cursor-pointer text-xs" style={{ color: 'var(--ink-faint)' }}>
+          Raw analysis JSON
+        </summary>
+        <pre
+          className="cadence-card mt-2 max-h-[32rem] overflow-auto font-mono text-xs whitespace-pre-wrap"
+          style={{ color: 'var(--ink-soft)' }}
+        >
           {JSON.stringify(result, null, 2)}
         </pre>
       </details>

@@ -14,7 +14,7 @@ const RepairRequestSchema = z.object({
   // would have failed validation for other reasons long before.
   abc: z.string().min(1).max(200_000),
   error: z.string().min(1).max(20_000),
-  accuracy: z.enum(['fast', 'accurate']).default('fast'),
+  accuracy: z.enum(['fast', 'accurate']).default('accurate'),
 });
 
 export async function POST(request: Request): Promise<Response> {
