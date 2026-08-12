@@ -85,14 +85,30 @@ describe('constraint 1 — the Gemini key never reaches the browser', () => {
 
 describe('constraint 2 — maxDuration on every route that calls Gemini', () => {
   const routes = FILES.filter((f) => /^app\/api\/.*route\.ts$/.test(f.rel));
+  /*
+   * Scoped to routes that actually reach the model. Analysis takes 30-90s and
+   * longer on 2.5 Pro, so those routes are killed at the default limit without
+   * this. A route that only exchanges JSON — issuing a Blob upload token, say —
+   * has no such need, and giving it a 300s ceiling would misstate what it does.
+   */
+  const callsGemini = (text: string): boolean => /@\/lib\/gemini\/client/.test(text);
+  const geminiRoutes = routes.filter((f) => callsGemini(f.text));
 
-  it('there is at least one API route', () => {
-    expect(routes.length).toBeGreaterThan(0);
+  it('there is at least one route that calls Gemini', () => {
+    expect(geminiRoutes.length).toBeGreaterThan(0);
   });
 
-  it.each(routes.map((r) => r.rel))('%s exports maxDuration = 300', (rel) => {
-    const file = routes.find((r) => r.rel === rel);
+  it.each(geminiRoutes.map((r) => r.rel))('%s exports maxDuration = 300', (rel) => {
+    const file = geminiRoutes.find((r) => r.rel === rel);
     expect(file?.text).toMatch(/export\s+const\s+maxDuration\s*=\s*300\b/);
+  });
+
+  it('every API route declares the nodejs runtime', () => {
+    for (const route of routes) {
+      expect(route.text, `${route.rel} must pin the runtime`).toMatch(
+        /export\s+const\s+runtime\s*=\s*'nodejs'/,
+      );
+    }
   });
 });
 
@@ -104,15 +120,32 @@ describe('constraint 3 — audio never travels through our API route', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('uploads, once implemented, go direct to Blob from the client', () => {
+  it('uploads go direct to Blob from the client', () => {
     const uploaders = FILES.filter((f) => /@vercel\/blob/.test(f.text) && !isTest(f.rel));
+    // No longer vacuous: the upload path exists, so this has something to bite.
+    expect(uploaders.length).toBeGreaterThan(0);
     for (const file of uploaders) {
-      // The client-side entrypoint is the only correct one: the server route
-      // variant would put the bytes back through the 4.5 MB body limit.
+      // The client-side entrypoint is the only correct one: the server-side
+      // `put` would route the bytes back through the 4.5 MB body limit.
       expect(file.text, `${file.rel} must import @vercel/blob/client`).toMatch(
         /@vercel\/blob\/client/,
       );
     }
+  });
+
+  it('the browser uploads the bytes, not a route of ours', () => {
+    const client = FILES.find((f) => f.rel === 'components/AudioUpload.tsx');
+    expect(client?.text).toMatch(/upload\(/);
+    expect(client?.text).toMatch(/handleUploadUrl/);
+    // Our route only issues tokens; it must never receive the file itself.
+    const route = FILES.find((f) => f.rel === 'app/api/blob/upload/route.ts');
+    expect(route?.text).toMatch(/handleUpload\(/);
+    expect(route?.text).not.toMatch(/formData\(\)|arrayBuffer\(\)/);
+  });
+
+  it('the size cap is enforced server-side, not only in the browser', () => {
+    const route = FILES.find((f) => f.rel === 'app/api/blob/upload/route.ts');
+    expect(route?.text).toMatch(/maximumSizeInBytes:\s*MAX_UPLOAD_BYTES/);
   });
 });
 

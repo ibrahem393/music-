@@ -25,7 +25,7 @@ Open http://localhost:3000.
 | Variable | Required | What it is |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | yes | Google Gemini API key, from [AI Studio](https://aistudio.google.com/apikey). Server-only — it is read exclusively inside `app/api/` route handlers and never reaches the browser. |
-| `BLOB_READ_WRITE_TOKEN` | no | Vercel Blob token, for direct client uploads of audio files. Created automatically when you attach a Blob store to the project; pull it with `vercel env pull .env.local`. |
+| `BLOB_READ_WRITE_TOKEN` | no | Vercel Blob token, for direct client uploads of audio files. Created automatically when you attach a Blob store to the project; pull it with `vercel env pull .env.local`. Without it the YouTube path works normally and the upload control explains that uploads are not configured. |
 
 Without a key the app runs and the interface works, but every analysis returns
 *"The server has no Gemini API key configured."*
@@ -48,6 +48,7 @@ app/
   work/[id]/page.tsx       results workspace — analysis rail + score canvas
   api/analyze/route.ts     POST { source } -> streamed NDJSON progress + result
   api/repair/route.ts      POST { abc, error } -> corrected ABC
+  api/blob/upload/route.ts issues client upload tokens; the audio never passes through it
 lib/
   gemini/schema.ts         zod schema + Gemini responseSchema, single source of truth
   gemini/prompts.ts        the analysis prompt, versioned

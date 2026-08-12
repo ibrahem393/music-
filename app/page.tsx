@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
 
+import AudioUpload from '@/components/AudioUpload';
 import { PitchBars } from '@/components/PitchColor';
 import ThemeToggle from '@/components/ThemeToggle';
 import { runAnalysis } from '@/lib/client/runAnalysis';
@@ -195,6 +196,16 @@ export default function Home() {
           )}
         </div>
       </form>
+
+      {state === 'idle' && !error && (
+        <AudioUpload
+          disabled={running}
+          onUploaded={(url) => {
+            setSource(url);
+            void start(url);
+          }}
+        />
+      )}
 
       {state === 'idle' && !error && (
         <section aria-labelledby="examples" className="flex flex-col gap-3">

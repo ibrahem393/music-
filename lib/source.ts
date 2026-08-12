@@ -137,8 +137,47 @@ export function parseSource(raw: string): SourceResult {
   };
 }
 
-/** 20 MB, per the brief. Enforced client-side before the Blob upload starts. */
+/**
+ * 20 MB, per the brief. Checked in the browser before the upload starts so the
+ * reader gets an immediate answer, and again when the upload token is issued —
+ * the browser check is a courtesy, the token check is the real boundary.
+ */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
+/** The MIME types a client token will be issued for. */
+export const ALLOWED_UPLOAD_MIME_TYPES = [
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/aac',
+  'audio/ogg',
+  'audio/opus',
+  'audio/flac',
+  'audio/x-flac',
+  'video/mp4',
+  'video/webm',
+] as const;
+
+/** What the file picker accepts, and what the error copy names. */
+export const UPLOAD_ACCEPT = '.mp3,.m4a,.wav,.flac,.aac,.ogg,.opus,.mp4,.webm,audio/*';
+
+export function describeUploadSize(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Null when the file is acceptable, otherwise the reason it is not. */
+export function checkUploadFile(file: { name: string; size: number }): string | null {
+  if (file.size === 0) return 'That file is empty.';
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return `That file is ${describeUploadSize(file.size)}. The limit is 20 MB — trim the excerpt, or export it at a lower bitrate.`;
+  }
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+  if (!Object.keys(AUDIO_EXTENSIONS).includes(extension)) {
+    return 'Cadence reads MP3, M4A, WAV, FLAC, AAC, OGG, Opus, MP4 and WebM.';
+  }
+  return null;
+}
 
 export const AnalyzeRequestSchema = z.object({
   source: z.string().min(1).max(2048),
