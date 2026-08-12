@@ -1,6 +1,5 @@
 'use client';
 
-import { upload } from '@vercel/blob/client';
 import { useCallback, useRef, useState } from 'react';
 
 import { UPLOAD_ACCEPT, checkUploadFile, describeUploadSize } from '@/lib/source';
@@ -43,6 +42,7 @@ export default function AudioUpload({ onUploaded, disabled = false }: AudioUploa
       setPhase({ status: 'uploading', fileName: file.name, percent: 0 });
 
       try {
+        const { upload } = await import('@vercel/blob/client');
         const blob = await upload(file.name, file, {
           access: 'public',
           handleUploadUrl: '/api/blob/upload',
